@@ -9,12 +9,20 @@ function PropertyDetail() {
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedImage, setSelectedImage] = useState("");
 
   useEffect(() => {
     const fetchPropertyDetail = async () => {
       try {
         const res = await API.get(`/properties/${id}`);
-        setProperty(res.data?.data || res.data);
+        // backend response flat hai, .data wrapper nahi hai
+        const data = res.data;
+        setProperty(data);
+
+        if (data?.images?.length > 0) {
+          const primaryImg = data.images.find((img) => img.is_primary) || data.images[0];
+          setSelectedImage(primaryImg.image_url);
+        }
       } catch (err) {
         setError("Failed to fetch property details");
       } finally {
@@ -35,6 +43,38 @@ function PropertyDetail() {
       </Button>
       <Card className="border-0 shadow rounded-4 p-4">
         <Card.Body>
+          {/* IMAGE GALLERY */}
+          {property.images?.length > 0 && (
+            <div className="mb-4">
+              <img
+                src={selectedImage}
+                alt={property.title}
+                style={{ width: "100%", height: "380px", objectFit: "cover", borderRadius: "12px" }}
+                onError={(e) => { e.target.src = "https://via.placeholder.com/800x400?text=No+Image"; }}
+              />
+              {property.images.length > 1 && (
+                <div className="d-flex gap-2 mt-2 overflow-auto">
+                  {property.images.map((img) => (
+                    <img
+                      key={img.id}
+                      src={img.image_url}
+                      alt="thumbnail"
+                      style={{
+                        width: "70px",
+                        height: "60px",
+                        objectFit: "cover",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        border: selectedImage === img.image_url ? "2px solid #4f46e5" : "2px solid transparent"
+                      }}
+                      onClick={() => setSelectedImage(img.image_url)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="d-flex justify-content-between align-items-start">
             <div>
               <h2 className="fw-bold">{property.title}</h2>
