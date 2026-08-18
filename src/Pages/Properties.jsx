@@ -104,7 +104,7 @@ function Properties() {
 
     if (invalidFile) {
       setImageError(
-        `\"${invalidFile.name}\" is larger than 500 KB. Please choose smaller images.`
+        `"${invalidFile.name}" is larger than 500 KB. Please choose smaller images.`
       );
       e.target.value = "";
       setSelectedImages([]);

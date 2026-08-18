@@ -49,8 +49,8 @@ function Dashboard() {
   });
 
   const [properties, setProperties] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [builders, setBuilders] = useState([]);
+  // const [projects, setProjects] = useState([]);
+  // const [builders, setBuilders] = useState([]);
   const [inquiries, setInquiries] = useState([]);
 
   const [loading, setLoading] = useState(true);
