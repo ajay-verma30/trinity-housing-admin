@@ -7,6 +7,8 @@ import React, {
   useRef
 } from "react";
 
+import API from '../api/axios';
+
 
 const AuthContext = createContext(null);
 
@@ -122,7 +124,7 @@ export const AuthProvider = ({ children }) => {
   try {
 
     const response = await fetch(
-      "http://localhost:3000/api/admin/login",
+      API,
       {
         method: "POST",
 
@@ -218,7 +220,7 @@ export const AuthProvider = ({ children }) => {
     // token and clear its cookie. Local state is cleared
     // regardless of whether this call succeeds.
     fetch(
-      "http://localhost:3000/api/admin/logout",
+      API,
       {
         method: "POST",
         credentials: "include"
@@ -270,7 +272,7 @@ export const AuthProvider = ({ children }) => {
         try {
 
           const response = await fetch(
-            "http://localhost:3000/api/admin/refresh",
+            API,
             {
               method: "POST",
 
