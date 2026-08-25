@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: 'https://trinity-housing-backend.onrender.com/api',
   withCredentials: true // Cookie-based Refresh Token transfer ke liye required hai
 });
 
