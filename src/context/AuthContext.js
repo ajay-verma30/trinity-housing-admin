@@ -120,58 +120,22 @@ export const AuthProvider = ({ children }) => {
   // --------------------------------
 
  const login = useCallback(async (email, password) => {
-
   try {
-
-    const response = await fetch(
-      API,
-      {
-        method: "POST",
-
-        credentials: "include", // required so the refresh-token cookie gets set
-
-        headers: {
-          "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify({
-          email,
-          password
-        })
-      }
-    );
-
-
-    const data = await response.json();
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        data.message || "Invalid email or password"
-      );
-    }
-
+    const { data } = await API.post("/auth/login", {
+      email,
+      password
+    });
 
     if (!data.accessToken) {
-
-      throw new Error(
-        "Invalid authentication response"
-      );
+      throw new Error("Invalid authentication response");
     }
 
-
-    // Store access token only — refresh token lives
-    // in the httpOnly cookie set by the server.
     localStorage.setItem(
       ACCESS_TOKEN_KEY,
       data.accessToken
     );
 
-
-    // Store admin
     if (data.admin) {
-
       localStorage.setItem(
         ADMIN_KEY,
         JSON.stringify(data.admin)
@@ -180,33 +144,24 @@ export const AuthProvider = ({ children }) => {
       setAdmin(data.admin);
     }
 
-
-    // Update React state
     setAccessToken(data.accessToken);
-
 
     return {
       success: true,
       admin: data.admin
     };
 
-
   } catch (error) {
-
-    console.error(
-      "Login error:",
-      error
-    );
-
+    console.error("Login error:", error);
 
     return {
       success: false,
       message:
+        error.response?.data?.message ||
         error.message ||
         "Failed to login"
     };
   }
-
 }, []);
 
 
@@ -214,40 +169,19 @@ export const AuthProvider = ({ children }) => {
   // Logout
   // --------------------------------
 
-  const logout = useCallback(() => {
-
-    // Best-effort: tell the server to revoke the refresh
-    // token and clear its cookie. Local state is cleared
-    // regardless of whether this call succeeds.
-    fetch(
-      API,
-      {
-        method: "POST",
-        credentials: "include"
-      }
-    ).catch((error) => {
-
-      console.error(
-        "Logout request error:",
-        error
-      );
-    });
-
-
-    localStorage.removeItem(
-      ACCESS_TOKEN_KEY
-    );
-
-
-    localStorage.removeItem(
-      ADMIN_KEY
-    );
-
+ const logout = useCallback(async () => {
+  try {
+    await API.post("/auth/logout");
+  } catch (error) {
+    console.error("Logout request error:", error);
+  } finally {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_KEY);
 
     setAccessToken(null);
     setAdmin(null);
-
-  }, []);
+  }
+}, []);
 
 
   // --------------------------------
@@ -272,7 +206,7 @@ export const AuthProvider = ({ children }) => {
         try {
 
           const response = await fetch(
-            API,
+            `${API}/login`,
             {
               method: "POST",
 
