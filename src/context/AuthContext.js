@@ -188,100 +188,67 @@ export const AuthProvider = ({ children }) => {
   // Refresh Access Token
   // --------------------------------
 
-  const refreshAccessToken = useCallback(
-    async () => {
+ const refreshAccessToken = useCallback(
+  async () => {
 
-      // If a refresh is already in flight, reuse its
-      // promise instead of firing a second request —
-      // the backend revokes the old refresh token on
-      // every rotation, so a second concurrent call
-      // would always fail and wrongly trigger logout().
-      if (refreshPromiseRef.current) {
-        return refreshPromiseRef.current;
-      }
-
-
-      const doRefresh = async () => {
-
-        try {
-
-          const response = await fetch(
-            `${API}/login`,
-            {
-              method: "POST",
-
-              credentials: "include", // sends the refresh-token cookie
-
-              headers: {
-                "Content-Type": "application/json"
-              }
-            }
-          );
-
-
-          if (!response.ok) {
-
-            throw new Error(
-              "Failed to refresh access token"
-            );
-          }
-
-
-          const data =
-            await response.json();
-
-
-          if (!data.accessToken) {
-
-            throw new Error(
-              "Access token missing from refresh response"
-            );
-          }
-
-
-          localStorage.setItem(
-            ACCESS_TOKEN_KEY,
-            data.accessToken
-          );
-
-
-          setAccessToken(
-            data.accessToken
-          );
-
-
-          // The rotated refresh token is set directly as
-          // a cookie by the server — nothing to store here.
-
-          return true;
-
-        } catch (error) {
-
-          console.error(
-            "Refresh token error:",
-            error
-          );
-
-
-          logout();
-
-
-          return false;
-
-        } finally {
-
-          refreshPromiseRef.current = null;
-        }
-      };
-
-
-      refreshPromiseRef.current = doRefresh();
-
-
+    if (refreshPromiseRef.current) {
       return refreshPromiseRef.current;
-    },
-    [logout]
-  );
+    }
+
+    const doRefresh = async () => {
+
+      try {
+
+        const response = await API.post(
+          "/admin/refresh",
+          {},
+          {
+            withCredentials: true
+          }
+        );
+
+        const data = response.data;
+
+        if (!data.accessToken) {
+          throw new Error(
+            "Access token missing from refresh response"
+          );
+        }
+
+        localStorage.setItem(
+          ACCESS_TOKEN_KEY,
+          data.accessToken
+        );
+
+        setAccessToken(
+          data.accessToken
+        );
+
+        return true;
+
+      } catch (error) {
+
+        console.error(
+          "Refresh token error:",
+          error
+        );
+
+        await logout();
+
+        return false;
+
+      } finally {
+
+        refreshPromiseRef.current = null;
+      }
+    };
+
+    refreshPromiseRef.current = doRefresh();
+
+    return refreshPromiseRef.current;
+  },
+  [logout]
+);
 
 
   // --------------------------------
