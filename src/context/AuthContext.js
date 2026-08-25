@@ -7,34 +7,22 @@ import React, {
   useRef
 } from "react";
 
-import API from '../api/axios';
-
+import API from "../api/axios";
 
 const AuthContext = createContext(null);
 
-
 const ACCESS_TOKEN_KEY = "accessToken";
 const ADMIN_KEY = "admin";
-
-// Note: the refresh token is no longer stored here.
-// The backend sets it as an httpOnly cookie, so the
-// browser sends it automatically with every request
-// that includes credentials: "include" — client-side
-// JS never sees or manages it directly.
-
 
 // --------------------------------
 // Decode JWT
 // --------------------------------
 
 const decodeToken = (token) => {
-
   try {
-
     if (!token) {
       return null;
     }
-
 
     const payload = token.split(".")[1];
 
@@ -42,29 +30,22 @@ const decodeToken = (token) => {
       return null;
     }
 
-
-    const decodedPayload = JSON.parse(
+    return JSON.parse(
       atob(
         payload
           .replace(/-/g, "+")
           .replace(/_/g, "/")
       )
     );
-
-
-    return decodedPayload;
-
   } catch (error) {
-
-    console.error(
-      "Failed to decode token:",
-      error
-    );
-
+    console.error("Failed to decode token:", error);
     return null;
   }
 };
 
+// --------------------------------
+// Auth Provider
+// --------------------------------
 
 export const AuthProvider = ({ children }) => {
 
@@ -73,156 +54,128 @@ export const AuthProvider = ({ children }) => {
   // --------------------------------
 
   const [accessToken, setAccessToken] = useState(
-    localStorage.getItem(ACCESS_TOKEN_KEY)
+    () => localStorage.getItem(ACCESS_TOKEN_KEY)
   );
 
-
   const [admin, setAdmin] = useState(() => {
+    const storedAdmin = localStorage.getItem(ADMIN_KEY);
 
-    const storedAdmin =
-      localStorage.getItem(ADMIN_KEY);
-
+    if (!storedAdmin) {
+      return null;
+    }
 
     try {
-
-      return storedAdmin
-        ? JSON.parse(storedAdmin)
-        : null;
-
+      return JSON.parse(storedAdmin);
     } catch (error) {
-
-      console.error(
-        "Failed to parse stored admin:",
-        error
-      );
-
+      console.error("Failed to parse stored admin:", error);
+      localStorage.removeItem(ADMIN_KEY);
       return null;
     }
   });
 
-
   const [loading, setLoading] = useState(true);
 
-
-  // --------------------------------
-  // Guard against overlapping refresh calls
-  // (refresh token rotates server-side, so two
-  // simultaneous calls would race: whichever
-  // request loses would try to use an already-
-  // revoked refresh token and force a logout)
-  // --------------------------------
-
+  // Prevent multiple refresh requests at the same time
   const refreshPromiseRef = useRef(null);
-
 
   // --------------------------------
   // Login
   // --------------------------------
 
- const login = useCallback(async (email, password) => {
-  try {
-    const { data } = await API.post("/admin/login", {
-      email,
-      password
-    });
+  const login = useCallback(async (email, password) => {
+    try {
+      const { data } = await API.post("/admin/login", {
+        email,
+        password
+      });
 
-    if (!data.accessToken) {
-      throw new Error("Invalid authentication response");
-    }
+      if (!data?.accessToken) {
+        throw new Error("Invalid authentication response");
+      }
 
-    localStorage.setItem(
-      ACCESS_TOKEN_KEY,
-      data.accessToken
-    );
-
-    if (data.admin) {
+      // Store access token
       localStorage.setItem(
-        ADMIN_KEY,
-        JSON.stringify(data.admin)
+        ACCESS_TOKEN_KEY,
+        data.accessToken
       );
 
-      setAdmin(data.admin);
+      // Store admin information
+      if (data.admin) {
+        localStorage.setItem(
+          ADMIN_KEY,
+          JSON.stringify(data.admin)
+        );
+
+        setAdmin(data.admin);
+      }
+
+      setAccessToken(data.accessToken);
+
+      return {
+        success: true,
+        admin: data.admin
+      };
+
+    } catch (error) {
+      console.error("Login error:", error);
+
+      return {
+        success: false,
+        message:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to login"
+      };
     }
-
-    setAccessToken(data.accessToken);
-
-    return {
-      success: true,
-      admin: data.admin
-    };
-
-  } catch (error) {
-    console.error("Login error:", error);
-
-    return {
-      success: false,
-      message:
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to login"
-    };
-  }
-}, []);
-
+  }, []);
 
   // --------------------------------
   // Logout
   // --------------------------------
 
- const logout = useCallback(async () => {
-  try {
-    await API.post("/admin/logout");
-  } catch (error) {
-    console.error("Logout request error:", error);
-  } finally {
+  const logout = useCallback(() => {
+
+    // Clear client-side authentication state
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(ADMIN_KEY);
 
     setAccessToken(null);
     setAdmin(null);
-  }
-}, []);
 
+  }, []);
 
   // --------------------------------
   // Refresh Access Token
   // --------------------------------
 
- const refreshAccessToken = useCallback(
-  async () => {
+  const refreshAccessToken = useCallback(async () => {
 
+    // If refresh already running, reuse it
     if (refreshPromiseRef.current) {
       return refreshPromiseRef.current;
     }
 
     const doRefresh = async () => {
-
       try {
 
-        const response = await API.post(
+        const { data } = await API.post(
           "/admin/refresh",
-          {},
-          {
-            withCredentials: true
-          }
+          {}
         );
 
-        const data = response.data;
-
-        if (!data.accessToken) {
+        if (!data?.accessToken) {
           throw new Error(
             "Access token missing from refresh response"
           );
         }
 
+        // Save new access token
         localStorage.setItem(
           ACCESS_TOKEN_KEY,
           data.accessToken
         );
 
-        setAccessToken(
-          data.accessToken
-        );
+        setAccessToken(data.accessToken);
 
         return true;
 
@@ -233,12 +186,21 @@ export const AuthProvider = ({ children }) => {
           error
         );
 
-        await logout();
+        // Refresh failed → clear authentication
+        localStorage.removeItem(
+          ACCESS_TOKEN_KEY
+        );
+
+        localStorage.removeItem(
+          ADMIN_KEY
+        );
+
+        setAccessToken(null);
+        setAdmin(null);
 
         return false;
 
       } finally {
-
         refreshPromiseRef.current = null;
       }
     };
@@ -246,16 +208,16 @@ export const AuthProvider = ({ children }) => {
     refreshPromiseRef.current = doRefresh();
 
     return refreshPromiseRef.current;
-  },
-  [logout]
-);
 
+  }, []);
 
   // --------------------------------
-  // Check Existing Session
+  // Initialize Authentication
   // --------------------------------
 
   useEffect(() => {
+
+    let mounted = true;
 
     const initializeAuth = async () => {
 
@@ -266,53 +228,68 @@ export const AuthProvider = ({ children }) => {
             ACCESS_TOKEN_KEY
           );
 
+        // --------------------------------
+        // No access token
+        // --------------------------------
+        //
+        // Do NOT automatically call refresh here.
+        // This prevents the login page from continuously
+        // trying to refresh when there is no session.
+        //
 
-        // No access token — try the refresh cookie in case
-        // a valid session still exists server-side (e.g.
-        // access token was never persisted, or was cleared).
         if (!storedToken) {
 
-          await refreshAccessToken();
-
-          setLoading(false);
+          if (mounted) {
+            setLoading(false);
+          }
 
           return;
         }
 
+        // --------------------------------
+        // Decode access token
+        // --------------------------------
 
         const decodedToken =
           decodeToken(storedToken);
 
-
-        // Invalid access token
+        // Invalid token
         if (!decodedToken) {
 
           logout();
 
-          setLoading(false);
+          if (mounted) {
+            setLoading(false);
+          }
 
           return;
         }
 
+        // --------------------------------
+        // Check expiry
+        // --------------------------------
 
         const currentTime =
           Date.now() / 1000;
 
-
-        // Access token expired
-        if (
+        const isExpired =
           decodedToken.exp &&
-          decodedToken.exp <= currentTime
-        ) {
+          decodedToken.exp <= currentTime;
+
+        // --------------------------------
+        // Token expired
+        // --------------------------------
+
+        if (isExpired) {
 
           await refreshAccessToken();
 
         } else {
 
-          // Access token still valid
-          setAccessToken(
-            storedToken
-          );
+          // Token still valid
+          if (mounted) {
+            setAccessToken(storedToken);
+          }
         }
 
       } catch (error) {
@@ -326,19 +303,22 @@ export const AuthProvider = ({ children }) => {
 
       } finally {
 
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
-
     initializeAuth();
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => {
+      mounted = false;
+    };
 
+  }, [logout, refreshAccessToken]);
 
   // --------------------------------
-  // Automatically Refresh Access Token
+  // Automatic Access Token Refresh
   // --------------------------------
 
   useEffect(() => {
@@ -347,23 +327,18 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-
     const decodedToken =
       decodeToken(accessToken);
-
 
     if (!decodedToken?.exp) {
       return;
     }
 
-
     const currentTime =
       Date.now() / 1000;
 
-
     const expiresIn =
       decodedToken.exp - currentTime;
-
 
     // Refresh 1 minute before expiry
     const refreshTime =
@@ -372,25 +347,18 @@ export const AuthProvider = ({ children }) => {
         0
       );
 
-
     const timer = setTimeout(() => {
-
       refreshAccessToken();
-
     }, refreshTime);
 
-
     return () => {
-
       clearTimeout(timer);
-
     };
 
   }, [
     accessToken,
     refreshAccessToken
   ]);
-
 
   // --------------------------------
   // Authenticated State
@@ -399,37 +367,27 @@ export const AuthProvider = ({ children }) => {
   const isAuthenticated =
     Boolean(accessToken);
 
-
   // --------------------------------
   // Context
   // --------------------------------
 
   return (
-
     <AuthContext.Provider
       value={{
         accessToken,
         admin,
-
         loading,
-
         isAuthenticated,
-
         login,
         logout,
-
         refreshAccessToken,
-
         decodeToken
       }}
     >
-
       {children}
-
     </AuthContext.Provider>
   );
 };
-
 
 // --------------------------------
 // useAuth Hook
@@ -440,14 +398,11 @@ export const useAuth = () => {
   const context =
     useContext(AuthContext);
 
-
   if (!context) {
-
     throw new Error(
       "useAuth must be used inside AuthProvider"
     );
   }
-
 
   return context;
 };

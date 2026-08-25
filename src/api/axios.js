@@ -1,48 +1,114 @@
-import axios from 'axios';
+import axios from "axios";
 
 const API = axios.create({
-  baseURL: 'https://trinity-housing-backend.onrender.com/api',
-  withCredentials: true // Cookie-based Refresh Token transfer ke liye required hai
+  baseURL:
+    "https://trinity-housing-backend.onrender.com/api",
+  withCredentials: true
 });
 
-// Request Interceptor: Access Token ko headers mein pass karne ke liye
+// --------------------------------
+// Request Interceptor
+// --------------------------------
+
 API.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+
+    const token =
+      localStorage.getItem("accessToken");
+
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization =
+        `Bearer ${token}`;
     }
+
     return config;
   },
-  (error) => Promise.reject(error)
+
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-// Response Interceptor: Expired Access Token ko silently refresh karne ke liye
+// --------------------------------
+// Response Interceptor
+// --------------------------------
+
 API.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
 
-    // Agar request 401 Unauthorized return kare aur retried flag active na ho
-    if (error.response?.status === 401 && !originalRequest._retry) {
+  async (error) => {
+
+    const originalRequest =
+      error.config;
+
+    // No config
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
+
+    // Don't refresh the refresh request itself
+    const isRefreshRequest =
+      originalRequest.url?.includes(
+        "/admin/refresh"
+      );
+
+    // Only handle 401
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isRefreshRequest
+    ) {
+
       originalRequest._retry = true;
 
       try {
-        // Backend /auth/refresh endpoint ko call kar ke naya token fetch karein
-        const { data } = await axios.get('https://trinity-housing-backend.onrender.com/api/admin/refresh', {
-          withCredentials: true
-        });
 
-        localStorage.setItem('accessToken', data.accessToken);
-        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
+        const { data } =
+          await axios.post(
+            "https://trinity-housing-backend.onrender.com/api/admin/refresh",
+            {},
+            {
+              withCredentials: true
+            }
+          );
 
-        // Naye access token ke saath original API request retry karein
+        if (!data?.accessToken) {
+          throw new Error(
+            "Refresh response does not contain accessToken"
+          );
+        }
+
+        localStorage.setItem(
+          "accessToken",
+          data.accessToken
+        );
+
+        originalRequest.headers.Authorization =
+          `Bearer ${data.accessToken}`;
+
         return API(originalRequest);
+
       } catch (refreshError) {
-        // Refresh token fail/expire hone par session clear karein
-        localStorage.removeItem('accessToken');
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
+
+        console.error(
+          "Axios refresh failed:",
+          refreshError
+        );
+
+        localStorage.removeItem(
+          "accessToken"
+        );
+
+        localStorage.removeItem(
+          "admin"
+        );
+
+        window.location.href =
+          "/login";
+
+        return Promise.reject(
+          refreshError
+        );
       }
     }
 
