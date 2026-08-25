@@ -29,7 +29,7 @@ API.interceptors.response.use(
 
       try {
         // Backend /auth/refresh endpoint ko call kar ke naya token fetch karein
-        const { data } = await axios.get('http://localhost:3000/api/auth/refresh', {
+        const { data } = await axios.get('https://trinity-housing-backend.onrender.com/api', {
           withCredentials: true
         });
 
