@@ -121,7 +121,7 @@ export const AuthProvider = ({ children }) => {
 
  const login = useCallback(async (email, password) => {
   try {
-    const { data } = await API.post("/auth/login", {
+    const { data } = await API.post("/admin/login", {
       email,
       password
     });
@@ -171,7 +171,7 @@ export const AuthProvider = ({ children }) => {
 
  const logout = useCallback(async () => {
   try {
-    await API.post("/auth/logout");
+    await API.post("/admin/logout");
   } catch (error) {
     console.error("Logout request error:", error);
   } finally {
