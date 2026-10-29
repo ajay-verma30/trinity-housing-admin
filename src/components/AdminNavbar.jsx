@@ -46,18 +46,26 @@ function AdminNavbar() {
 
             <Nav.Link 
               as={Link} 
-              to="/properties" 
-              className={isActive("/properties") || location.pathname.startsWith("/properties/") ? "fw-bold text-primary" : ""}
-            >
-              🏢 Properties
-            </Nav.Link>
-
-            <Nav.Link 
-              as={Link} 
               to="/builders" 
               className={isActive("/builders") ? "fw-bold text-primary" : ""}
             >
               🏗️ Builders
+            </Nav.Link>
+
+            <Nav.Link 
+              as={Link} 
+              to="/projects" 
+              className={isActive("/projects") ? "fw-bold text-primary" : ""}
+            >
+              📁 Projects
+            </Nav.Link>
+
+            <Nav.Link 
+              as={Link} 
+              to="/properties" 
+              className={isActive("/properties") || location.pathname.startsWith("/properties/") ? "fw-bold text-primary" : ""}
+            >
+              🏢 Properties
             </Nav.Link>
 
             <Nav.Link 

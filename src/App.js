@@ -14,6 +14,7 @@ import PropertyDetail from "./Pages/PropertyDetail";
 import Inquiries from "./Pages/Inquiries";
 
 import ProtectedRoute from "./components/ProtectedRoute";
+import Projects from "./Pages/Projects";
 
 function App() {
   return (
@@ -37,6 +38,10 @@ function App() {
               element={<Builders />}
             />
             <Route
+              path="/projects"
+              element={<Projects />}
+            />
+            <Route
               path="/properties"
               element={<Properties />}
             />
@@ -45,6 +50,7 @@ function App() {
               element={<PropertyDetail />}
             />
             <Route
+            
               path="/inquiries"
               element={<Inquiries />}
             />
